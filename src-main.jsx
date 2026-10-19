@@ -1,427 +1,570 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  LayoutDashboard, Users, GraduationCap, BookOpen,
-  ClipboardCheck, Wallet, BarChart3, Settings,
-  Search, Plus, Trash2, Download, Menu, X,
-  School, CalendarDays, CheckCircle2, AlertCircle
-} from "lucide-react";
 
-import "./style.css";
+const KEY = "akademi_school_v1";
 
-const initialStudents = [
-  { id: 1, name: "أحمد محمد", className: "الأول أ", phone: "", fee: 500000, paid: 300000 },
-  { id: 2, name: "زينب علي", className: "الثاني أ", phone: "", fee: 500000, paid: 500000 },
-  { id: 3, name: "حسين كريم", className: "الأول ب", phone: "", fee: 450000, paid: 150000 }
-];
+const initialData = {
+  students: [],
+  teachers: [],
+  classes: [],
+  attendance: {},
+};
 
-function loadData(key, fallback) {
+const css = `
+*{box-sizing:border-box}
+body{margin:0;font-family:Tahoma,Arial,sans-serif;background:#f3f6fb;color:#17243b}
+button,input,select{font:inherit}
+button{cursor:pointer;border:0;border-radius:9px;padding:10px 14px}
+.app{min-height:100vh}
+.top{background:#142b4d;color:white;padding:19px 22px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{font-size:22px;font-weight:bold}.sub{font-size:12px;color:#cbd8eb;margin-top:6px}
+.layout{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:calc(100vh - 80px)}
+.side{background:#fff;padding:16px;border-left:1px solid #e1e7f0}
+.nav{display:block;width:100%;text-align:right;background:transparent;color:#3a4b65;margin:4px 0;padding:12px}
+.nav.active{background:#e8f0ff;color:#1454b8;font-weight:bold}
+.main{padding:24px;min-width:0}
+.heading{font-size:24px;font-weight:bold;margin:0 0 7px}
+.muted{color:#6c7b91;font-size:13px;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:20px}
+.card,.panel{background:white;border:1px solid #e2e8f1;border-radius:14px;padding:17px;box-shadow:0 3px 12px #15274408}
+.metric{font-size:26px;font-weight:bold;margin-top:10px;color:#183d70}
+.label{color:#718096;font-size:13px}
+.panel{margin-bottom:18px}
+.panel-title{font-weight:bold;font-size:17px;margin-bottom:15px}
+.form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+input,select{width:100%;padding:11px;border:1px solid #d6deea;border-radius:9px;background:white;min-width:0;color:#17243b}
+.primary{background:#1d5fc7;color:white}.danger{background:#fff0f0;color:#b42318}
+.light{background:#eaf0f8;color:#2a4568}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:620px}
+th,td{padding:12px 9px;text-align:right;border-bottom:1px solid #edf0f5;font-size:13px}
+th{background:#f7f9fc;color:#5b6b82;white-space:nowrap}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+.small{padding:7px 9px;font-size:12px}
+.badge{display:inline-block;border-radius:20px;padding:5px 9px;background:#e8f7ee;color:#187344;font-size:12px}
+.empty{text-align:center;padding:28px;color:#8290a3}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row input{flex:1;min-width:160px}
+.notice{background:#fff8e5;border:1px solid #f1dfa6;color:#785b13;padding:12px;border-radius:10px;font-size:13px;margin-bottom:16px}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.side{display:flex;gap:5px;overflow-x:auto;padding:8px;border-left:0;border-bottom:1px solid #e1e7f0}.nav{white-space:nowrap;width:auto;margin:0}.main{padding:14px}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.form{grid-template-columns:1fr 1fr}.top{padding:15px}.brand{font-size:19px}}
+@media(max-width:420px){.form{grid-template-columns:1fr}.grid{gap:8px}.card{padding:12px}.metric{font-size:22px}}
+@media print{.top,.side,.no-print,.notice{display:none!important}.layout{display:block}.main{padding:0}.panel,.card{box-shadow:none;break-inside:avoid}body{background:white}.grid{grid-template-columns:repeat(4,1fr)}}
+`;
+
+function loadData() {
   try {
-    const value = localStorage.getItem(key);
-    return value ? JSON.parse(value) : fallback;
+    const saved = localStorage.getItem(KEY);
+    return saved ? { ...initialData, ...JSON.parse(saved) } : initialData;
   } catch {
-    return fallback;
+    return initialData;
   }
 }
 
 function App() {
-  const [page, setPage] = useState("dashboard");
-  const [students, setStudents] = useState(() =>
-    loadData("academi_students", initialStudents)
-  );
-  const [teachers, setTeachers] = useState(() =>
-    loadData("academi_teachers", [])
-  );
-  const [classes, setClasses] = useState(() =>
-    loadData("academi_classes", ["الأول أ", "الأول ب", "الثاني أ"])
-  );
-  const [attendance, setAttendance] = useState(() =>
-    loadData("academi_attendance", [])
-  );
-  const [payments, setPayments] = useState(() =>
-    loadData("academi_payments", [])
-  );
-  const [search, setSearch] = useState("");
-  const [mobileMenu, setMobileMenu] = useState(false);
+  const [data, setData] = useState(loadData);
+  const [page, setPage] = useState("home");
+  const [query, setQuery] = useState("");
   const [notice, setNotice] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
-    name: "", className: "الأول أ", phone: "",
-    fee: "500000", paid: "0"
+  const [studentForm, setStudentForm] = useState({
+    name: "", grade: "", section: "", phone: "", fee: "0",
   });
-  const [teacherName, setTeacherName] = useState("");
-  const [className, setClassName] = useState("");
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().slice(0, 10)
-  );
+  const [teacherForm, setTeacherForm] = useState({
+    name: "", subject: "", phone: "",
+  });
+  const [classForm, setClassForm] = useState({
+    name: "", grade: "", teacher: "",
+  });
+  const [payments, setPayments] = useState({});
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
 
   useEffect(() => {
-    localStorage.setItem("academi_students", JSON.stringify(students));
-  }, [students]);
-  useEffect(() => {
-    localStorage.setItem("academi_teachers", JSON.stringify(teachers));
-  }, [teachers]);
-  useEffect(() => {
-    localStorage.setItem("academi_classes", JSON.stringify(classes));
-  }, [classes]);
-  useEffect(() => {
-    localStorage.setItem("academi_attendance", JSON.stringify(attendance));
-  }, [attendance]);
-  useEffect(() => {
-    localStorage.setItem("academi_payments", JSON.stringify(payments));
-  }, [payments]);
+    try {
+      localStorage.setItem(KEY, JSON.stringify(data));
+    } catch {
+      setNotice("تعذر الحفظ. قد تكون مساحة التخزين ممتلئة.");
+    }
+  }, [data]);
 
-  const totalFees = students.reduce((sum, s) => sum + Number(s.fee || 0), 0);
-  const totalPaid = students.reduce((sum, s) => sum + Number(s.paid || 0), 0);
-  const filteredStudents = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return students.filter(s =>
-      s.name.toLowerCase().includes(q) ||
-      s.className.toLowerCase().includes(q)
+  const update = (key, value) =>
+    setData(old => ({ ...old, [key]: value }));
+
+  const money = n => Number(n || 0).toLocaleString("en-US") + " د.ع";
+
+  const students = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return data.students.filter(s =>
+      [s.name, s.grade, s.section, s.phone].some(v =>
+        String(v || "").toLowerCase().includes(q)
+      )
     );
-  }, [students, search]);
+  }, [data.students, query]);
 
-  const nav = [
-    { id: "dashboard", label: "لوحة التحكم", icon: LayoutDashboard },
-    { id: "students", label: "الطلاب", icon: Users },
-    { id: "teachers", label: "المعلمون", icon: GraduationCap },
-    { id: "classes", label: "الصفوف الدراسية", icon: BookOpen },
-    { id: "attendance", label: "الحضور والغياب", icon: ClipboardCheck },
-    { id: "finance", label: "الرسوم والمدفوعات", icon: Wallet },
-    { id: "reports", label: "التقارير", icon: BarChart3 },
-    { id: "settings", label: "الإعدادات", icon: Settings }
-  ];
-
-  function notify(message) {
-    setNotice(message);
-    setTimeout(() => setNotice(""), 2800);
-  }
+  const totalFees = data.students.reduce((sum, s) => sum + Number(s.fee || 0), 0);
+  const totalPaid = data.students.reduce((sum, s) => sum + Number(s.paid || 0), 0);
+  const totalDue = totalFees - totalPaid;
 
   function addStudent(e) {
     e.preventDefault();
-    const fee = Number(form.fee);
-    const paid = Number(form.paid);
-    if (!form.name.trim()) return notify("يرجى إدخال اسم الطالب");
-    if (fee < 0 || paid < 0 || paid > fee)
-      return notify("تحقق من مبالغ الرسوم والمدفوعات");
-    setStudents(prev => [...prev, {
-      id: Date.now(),
-      name: form.name.trim(),
-      className: form.className,
-      phone: form.phone.trim(),
-      fee,
-      paid
-    }]);
-    setForm({ name: "", className: classes[0] || "", phone: "", fee: "500000", paid: "0" });
-    setShowForm(false);
-    notify("تمت إضافة الطالب بنجاح");
+    if (!studentForm.name.trim()) {
+      setNotice("يرجى إدخال اسم الطالب.");
+      return;
+    }
+    const fee = Math.max(0, Number(studentForm.fee || 0));
+    update("students", [
+      ...data.students,
+      {
+        id: crypto.randomUUID(),
+        ...studentForm,
+        name: studentForm.name.trim(),
+        fee,
+        paid: 0,
+      },
+    ]);
+    setStudentForm({ name: "", grade: "", section: "", phone: "", fee: "0" });
+    setNotice("تمت إضافة الطالب بنجاح.");
+  }
+
+  function addTeacher(e) {
+    e.preventDefault();
+    if (!teacherForm.name.trim()) {
+      setNotice("يرجى إدخال اسم المعلم.");
+      return;
+    }
+    update("teachers", [
+      ...data.teachers,
+      { id: crypto.randomUUID(), ...teacherForm },
+    ]);
+    setTeacherForm({ name: "", subject: "", phone: "" });
+    setNotice("تمت إضافة المعلم.");
+  }
+
+  function addClass(e) {
+    e.preventDefault();
+    if (!classForm.name.trim()) {
+      setNotice("يرجى إدخال اسم الصف أو الشعبة.");
+      return;
+    }
+    update("classes", [
+      ...data.classes,
+      { id: crypto.randomUUID(), ...classForm },
+    ]);
+    setClassForm({ name: "", grade: "", teacher: "" });
+    setNotice("تمت إضافة الصف أو الشعبة.");
+  }
+
+  function removeItem(key, id, name) {
+    if (!window.confirm(`هل تريد حذف ${name}؟`)) return;
+    update(key, data[key].filter(item => item.id !== id));
+    setNotice("تم الحذف.");
+  }
+
+  function editStudent(s) {
+    const name = window.prompt("اسم الطالب:", s.name);
+    if (name === null || !name.trim()) return;
+    const phone = window.prompt("رقم الهاتف:", s.phone || "");
+    if (phone === null) return;
+    const grade = window.prompt("الصف:", s.grade || "");
+    if (grade === null) return;
+    const section = window.prompt("الشعبة:", s.section || "");
+    if (section === null) return;
+    update("students", data.students.map(item =>
+      item.id === s.id
+        ? { ...item, name: name.trim(), phone, grade, section }
+        : item
+    ));
+    setNotice("تم تحديث بيانات الطالب.");
+  }
+
+  function recordPayment(s) {
+    const amount = Number(payments[s.id] || 0);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setNotice("أدخل مبلغ دفعة صحيحًا.");
+      return;
+    }
+    if (amount > Number(s.fee) - Number(s.paid)) {
+      setNotice("مبلغ الدفعة أكبر من المبلغ المتبقي.");
+      return;
+    }
+    update("students", data.students.map(item =>
+      item.id === s.id ? { ...item, paid: Number(item.paid) + amount } : item
+    ));
+    setPayments(old => ({ ...old, [s.id]: "" }));
+    setNotice("تم تسجيل الدفعة.");
   }
 
   function markAttendance(studentId, status) {
-    setAttendance(prev => {
-      const rest = prev.filter(a =>
-        !(a.studentId === studentId && a.date === selectedDate)
-      );
-      return [...rest, { studentId, date: selectedDate, status }];
-    });
-    notify("تم حفظ الحضور");
-  }
-
-  function addPayment(studentId, amount) {
-    const value = Number(amount);
-    const student = students.find(s => s.id === studentId);
-    if (!student || !Number.isFinite(value) || value <= 0)
-      return notify("أدخل مبلغًا صحيحًا");
-    if (value > student.fee - student.paid)
-      return notify("المبلغ أكبر من الرسوم المتبقية");
-
-    setStudents(prev => prev.map(s =>
-      s.id === studentId ? { ...s, paid: s.paid + value } : s
-    ));
-    setPayments(prev => [...prev, {
-      id: Date.now(), studentId, amount: value,
-      date: new Date().toISOString().slice(0, 10)
-    }]);
-    notify("تم تسجيل الدفعة");
+    const key = `${date}_${studentId}`;
+    update("attendance", { ...data.attendance, [key]: status });
   }
 
   function exportCSV() {
     const rows = [
-      ["الاسم", "الصف", "الهاتف", "الرسوم", "المدفوع", "المتبقي"],
-      ...students.map(s => [
-        s.name, s.className, s.phone, s.fee, s.paid, s.fee - s.paid
-      ])
+      ["اسم الطالب", "الصف", "الشعبة", "الهاتف", "الأقساط", "المدفوع", "المتبقي"],
+      ...data.students.map(s => [
+        s.name, s.grade, s.section, s.phone, s.fee, s.paid,
+        Number(s.fee) - Number(s.paid),
+      ]),
     ];
     const csv = "\uFEFF" + rows.map(row =>
-      row.map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")
-    ).join("\n");
-    const url = URL.createObjectURL(new Blob([csv], {
-      type: "text/csv;charset=utf-8;"
-    }));
+      row.map(value => `"${String(value ?? "").replace(/"/g, '""')}"`).join(",")
+    ).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = "akademi-report.csv";
+    a.download = "akademi-students.csv";
     a.click();
     URL.revokeObjectURL(url);
   }
 
-  const money = n => Number(n || 0).toLocaleString("en-US") + " د.ع";
-  const attendanceFor = id =>
-    attendance.find(a => a.studentId === id && a.date === selectedDate);
-
-  function PageTitle({ title, subtitle }) {
-    return <div className="page-title">
-      <div><h2>{title}</h2><p>{subtitle}</p></div>
-    </div>;
+  function backup() {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "akademi-backup.json";
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
-  function Dashboard() {
-    return <>
-      <PageTitle title="لوحة التحكم" subtitle="نظرة عامة على بيانات المدرسة" />
-      <div className="welcome">
-        <div><span>مرحبًا بك في</span><h2>أكاديمي لإدارة التعليم</h2>
-          <p>إدارة مدرستك من مكان واحد وبكل سهولة.</p></div>
-        <School size={58} />
+  function restore(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const restored = JSON.parse(reader.result);
+        if (!Array.isArray(restored.students) ||
+            !Array.isArray(restored.teachers) ||
+            !Array.isArray(restored.classes) ||
+            typeof restored.attendance !== "object") {
+          throw new Error("invalid");
+        }
+        if (window.confirm("سيتم استبدال البيانات الحالية بالنسخة المختارة. هل تريد المتابعة؟")) {
+          setData({ ...initialData, ...restored });
+          setNotice("تم استرجاع النسخة الاحتياطية.");
+        }
+      } catch {
+        setNotice("ملف النسخة الاحتياطية غير صالح.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
+  const nav = [
+    ["home", "الرئيسية"],
+    ["students", "إدارة الطلاب"],
+    ["teachers", "إدارة المعلمين"],
+    ["classes", "الصفوف والشعب"],
+    ["attendance", "الحضور والغياب"],
+    ["finance", "الأقساط والمدفوعات"],
+    ["reports", "التقارير والطباعة"],
+    ["settings", "النسخ الاحتياطي"],
+  ];
+
+  function StudentTable({ list }) {
+    return (
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>اسم الطالب</th><th>الصف</th><th>الشعبة</th>
+              <th>الهاتف</th><th>الأقساط</th><th>المدفوع</th>
+              <th>المتبقي</th><th className="no-print">الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map(s => (
+              <tr key={s.id}>
+                <td>{s.name}</td><td>{s.grade || "—"}</td>
+                <td>{s.section || "—"}</td><td>{s.phone || "—"}</td>
+                <td>{money(s.fee)}</td><td>{money(s.paid)}</td>
+                <td>{money(Number(s.fee) - Number(s.paid))}</td>
+                <td className="no-print">
+                  <div className="actions">
+                    <button className="light small" onClick={() => editStudent(s)}>تعديل</button>
+                    <button className="danger small" onClick={() => removeItem("students", s.id, "الطالب")}>حذف</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {list.length === 0 && <div className="empty">لا توجد بيانات لعرضها.</div>}
       </div>
-      <div className="stats">
-        <Stat icon={Users} label="إجمالي الطلاب" value={students.length} />
-        <Stat icon={GraduationCap} label="المعلمون" value={teachers.length} />
-        <Stat icon={BookOpen} label="الصفوف" value={classes.length} />
-        <Stat icon={Wallet} label="المبالغ المستلمة" value={money(totalPaid)} />
-      </div>
-      <div className="panel">
-        <div className="panel-heading"><h3>آخر الطلاب المسجلين</h3>
-          <button className="light-btn" onClick={() => setPage("students")}>عرض الكل</button>
+    );
+  }
+
+  function Home() {
+    return (
+      <>
+        <div className="grid">
+          <div className="card"><div className="label">عدد الطلاب</div><div className="metric">{data.students.length}</div></div>
+          <div className="card"><div className="label">عدد المعلمين</div><div className="metric">{data.teachers.length}</div></div>
+          <div className="card"><div className="label">إجمالي الأقساط</div><div className="metric">{money(totalFees)}</div></div>
+          <div className="card"><div className="label">المبالغ المستلمة</div><div className="metric">{money(totalPaid)}</div></div>
         </div>
-        <StudentTable rows={students.slice(-5).reverse()} />
-      </div>
-      <div className="panel">
-        <h3>ملخص الرسوم الدراسية</h3>
-        <div className="finance-summary">
-          <div><span>إجمالي الرسوم</span><strong>{money(totalFees)}</strong></div>
-          <div><span>المبلغ المستلم</span><strong className="green">{money(totalPaid)}</strong></div>
-          <div><span>المبلغ المتبقي</span><strong className="red">{money(totalFees-totalPaid)}</strong></div>
+        <div className="panel">
+          <div className="panel-title">مرحبًا بك في نظام أكاديمي</div>
+          <p>نظام مبسط لإدارة بيانات الطلاب والمعلمين والصفوف والحضور والأقساط.</p>
+          <div className="row no-print">
+            <button className="primary" onClick={() => setPage("students")}>إدارة الطلاب</button>
+            <button className="light" onClick={() => setPage("attendance")}>تسجيل الحضور</button>
+            <button className="light" onClick={() => setPage("reports")}>عرض التقارير</button>
+          </div>
         </div>
-      </div>
-    </>;
-  }
-
-  function Stat({ icon: Icon, label, value }) {
-    return <div className="stat"><div className="stat-icon"><Icon size={23}/></div>
-      <div><span>{label}</span><strong>{value}</strong></div></div>;
-  }
-
-  function StudentTable({ rows }) {
-    if (!rows.length) return <div className="empty">لا توجد بيانات لعرضها</div>;
-    return <div className="table-wrap"><table><thead><tr>
-      <th>اسم الطالب</th><th>الصف</th><th>الهاتف</th><th>الرسوم</th><th>المتبقي</th>
-      <th>الإجراء</th></tr></thead><tbody>
-      {rows.map(s => <tr key={s.id}>
-        <td><strong>{s.name}</strong></td><td>{s.className}</td>
-        <td>{s.phone || "—"}</td><td>{money(s.fee)}</td>
-        <td className={s.fee-s.paid > 0 ? "red" : "green"}>{money(s.fee-s.paid)}</td>
-        <td><button className="icon-btn danger" title="حذف الطالب"
-          onClick={() => {
-            if (confirm("هل تريد حذف الطالب " + s.name + "؟"))
-              setStudents(prev => prev.filter(x => x.id !== s.id));
-          }}><Trash2 size={16}/></button></td>
-      </tr>)}
-      </tbody></table></div>;
+        <div className="panel">
+          <div className="panel-title">ملخص مالي</div>
+          <p>إجمالي المستحق: <b>{money(totalDue)}</b></p>
+          <p>عدد الصفوف والشعب: <b>{data.classes.length}</b></p>
+        </div>
+      </>
+    );
   }
 
   function Students() {
-    return <>
-      <PageTitle title="إدارة الطلاب" subtitle={`عدد الطلاب المسجلين: ${students.length}`} />
-      <div className="toolbar">
-        <div className="search"><Search size={18}/><input value={search}
-          onChange={e => setSearch(e.target.value)} placeholder="ابحث باسم الطالب أو الصف..." /></div>
-        <button className="primary" onClick={() => setShowForm(v => !v)}><Plus size={18}/> إضافة طالب</button>
-        <button className="light-btn" onClick={exportCSV}><Download size={17}/> تصدير CSV</button>
-      </div>
-      {showForm && <form className="panel form-grid" onSubmit={addStudent}>
-        <h3 className="full">بيانات الطالب الجديد</h3>
-        <label>اسم الطالب<input required value={form.name} onChange={e => setForm({...form,name:e.target.value})}/></label>
-        <label>الصف الدراسي<select value={form.className} onChange={e => setForm({...form,className:e.target.value})}>
-          {classes.map(c => <option key={c}>{c}</option>)}
-        </select></label>
-        <label>رقم الهاتف<input value={form.phone} onChange={e => setForm({...form,phone:e.target.value})}/></label>
-        <label>الرسوم السنوية بالدينار<input type="number" min="0" required value={form.fee} onChange={e => setForm({...form,fee:e.target.value})}/></label>
-        <label>المبلغ المدفوع<input type="number" min="0" required value={form.paid} onChange={e => setForm({...form,paid:e.target.value})}/></label>
-        <button className="primary full" type="submit">حفظ الطالب</button>
-      </form>}
-      <div className="panel"><StudentTable rows={filteredStudents}/></div>
-    </>;
+    return (
+      <>
+        <div className="panel no-print">
+          <div className="panel-title">إضافة طالب جديد</div>
+          <form onSubmit={addStudent}>
+            <div className="form">
+              <input placeholder="اسم الطالب *" value={studentForm.name} onChange={e => setStudentForm({ ...studentForm, name: e.target.value })} required />
+              <input placeholder="الصف الدراسي" value={studentForm.grade} onChange={e => setStudentForm({ ...studentForm, grade: e.target.value })} />
+              <input placeholder="الشعبة" value={studentForm.section} onChange={e => setStudentForm({ ...studentForm, section: e.target.value })} />
+              <input placeholder="رقم الهاتف" value={studentForm.phone} onChange={e => setStudentForm({ ...studentForm, phone: e.target.value })} />
+              <input type="number" min="0" placeholder="القسط الكلي بالدينار" value={studentForm.fee} onChange={e => setStudentForm({ ...studentForm, fee: e.target.value })} />
+            </div>
+            <button className="primary">حفظ الطالب</button>
+          </form>
+        </div>
+        <div className="panel">
+          <div className="row no-print" style={{ marginBottom: 14 }}>
+            <input placeholder="ابحث بالاسم أو الصف أو الشعبة أو الهاتف..." value={query} onChange={e => setQuery(e.target.value)} />
+            <button className="light" onClick={exportCSV}>تصدير CSV</button>
+            <button className="light" onClick={() => window.print()}>طباعة</button>
+          </div>
+          <StudentTable list={students} />
+        </div>
+      </>
+    );
   }
 
   function Teachers() {
-    return <>
-      <PageTitle title="إدارة المعلمين" subtitle="إضافة أسماء الكادر التعليمي" />
-      <form className="panel inline-form" onSubmit={e => {
-        e.preventDefault();
-        if (!teacherName.trim()) return;
-        setTeachers(p => [...p, {id:Date.now(),name:teacherName.trim()}]);
-        setTeacherName(""); notify("تمت إضافة المعلم");
-      }}>
-        <input required placeholder="اسم المعلم أو المعلمة" value={teacherName} onChange={e=>setTeacherName(e.target.value)}/>
-        <button className="primary"><Plus size={17}/> إضافة معلم</button>
-      </form>
-      <div className="panel"><div className="simple-list">{teachers.map(t =>
-        <div className="list-row" key={t.id}><span><GraduationCap size={18}/> {t.name}</span>
-          <button className="icon-btn danger" onClick={()=>setTeachers(p=>p.filter(x=>x.id!==t.id))}><Trash2 size={16}/></button></div>)}
-        {!teachers.length && <div className="empty">لم تتم إضافة معلمين بعد</div>}</div></div>
-    </>;
+    return (
+      <>
+        <div className="panel no-print">
+          <div className="panel-title">إضافة معلم</div>
+          <form onSubmit={addTeacher}>
+            <div className="form">
+              <input placeholder="اسم المعلم *" required value={teacherForm.name} onChange={e => setTeacherForm({ ...teacherForm, name: e.target.value })} />
+              <input placeholder="المادة الدراسية" value={teacherForm.subject} onChange={e => setTeacherForm({ ...teacherForm, subject: e.target.value })} />
+              <input placeholder="رقم الهاتف" value={teacherForm.phone} onChange={e => setTeacherForm({ ...teacherForm, phone: e.target.value })} />
+            </div>
+            <button className="primary">حفظ المعلم</button>
+          </form>
+        </div>
+        <div className="panel">
+          <div className="table-wrap"><table>
+            <thead><tr><th>اسم المعلم</th><th>المادة</th><th>الهاتف</th><th className="no-print">إجراء</th></tr></thead>
+            <tbody>{data.teachers.map(t => <tr key={t.id}>
+              <td>{t.name}</td><td>{t.subject || "—"}</td><td>{t.phone || "—"}</td>
+              <td className="no-print"><button className="danger small" onClick={() => removeItem("teachers", t.id, "المعلم")}>حذف</button></td>
+            </tr>)}</tbody>
+          </table>{data.teachers.length === 0 && <div className="empty">لم تتم إضافة معلمين بعد.</div>}</div>
+        </div>
+      </>
+    );
   }
 
   function Classes() {
-    return <>
-      <PageTitle title="الصفوف الدراسية" subtitle="إدارة الصفوف والشعب" />
-      <form className="panel inline-form" onSubmit={e => {
-        e.preventDefault();
-        const name = className.trim();
-        if (!name) return;
-        if (classes.includes(name)) return notify("هذا الصف موجود مسبقًا");
-        setClasses(p => [...p, name]); setClassName(""); notify("تمت إضافة الصف");
-      }}>
-        <input required placeholder="اسم الصف، مثل الثالث أ" value={className} onChange={e=>setClassName(e.target.value)}/>
-        <button className="primary"><Plus size={17}/> إضافة صف</button>
-      </form>
-      <div className="stats">{classes.map(c => <div className="stat" key={c}>
-        <div className="stat-icon"><BookOpen size={22}/></div>
-        <div><strong>{c}</strong><span>{students.filter(s=>s.className===c).length} طالب</span></div>
-        <button className="icon-btn danger" onClick={() => {
-          if (students.some(s=>s.className===c)) return notify("لا يمكن حذف صف يحتوي على طلاب");
-          setClasses(p=>p.filter(x=>x!==c));
-        }}><Trash2 size={16}/></button>
-      </div>)}</div>
-    </>;
+    return (
+      <>
+        <div className="panel no-print">
+          <div className="panel-title">إضافة صف أو شعبة</div>
+          <form onSubmit={addClass}>
+            <div className="form">
+              <input placeholder="اسم الصف أو الشعبة *" required value={classForm.name} onChange={e => setClassForm({ ...classForm, name: e.target.value })} />
+              <input placeholder="المرحلة الدراسية" value={classForm.grade} onChange={e => setClassForm({ ...classForm, grade: e.target.value })} />
+              <select value={classForm.teacher} onChange={e => setClassForm({ ...classForm, teacher: e.target.value })}>
+                <option value="">اختر المعلم المسؤول</option>
+                {data.teachers.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+              </select>
+            </div>
+            <button className="primary">حفظ الصف</button>
+          </form>
+        </div>
+        <div className="panel">
+          <div className="table-wrap"><table>
+            <thead><tr><th>اسم الصف/الشعبة</th><th>المرحلة</th><th>المعلم المسؤول</th><th className="no-print">إجراء</th></tr></thead>
+            <tbody>{data.classes.map(c => <tr key={c.id}>
+              <td>{c.name}</td><td>{c.grade || "—"}</td><td>{c.teacher || "—"}</td>
+              <td className="no-print"><button className="danger small" onClick={() => removeItem("classes", c.id, "الصف")}>حذف</button></td>
+            </tr>)}</tbody>
+          </table>{data.classes.length === 0 && <div className="empty">لم تتم إضافة صفوف بعد.</div>}</div>
+        </div>
+      </>
+    );
   }
 
   function Attendance() {
-    return <>
-      <PageTitle title="الحضور والغياب" subtitle="تسجيل حضور الطلاب يوميًا" />
-      <div className="panel"><label className="date-field">تاريخ السجل
-        <input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)}/>
-      </label>
-      <div className="table-wrap"><table><thead><tr><th>اسم الطالب</th><th>الصف</th><th>الحالة</th></tr></thead>
-      <tbody>{students.map(s => {
-        const a = attendanceFor(s.id);
-        return <tr key={s.id}><td>{s.name}</td><td>{s.className}</td><td>
-          <div className="attendance-actions">
-            <button className={a?.status==="present"?"status present selected":"status present"} onClick={()=>markAttendance(s.id,"present")}>حاضر</button>
-            <button className={a?.status==="absent"?"status absent selected":"status absent"} onClick={()=>markAttendance(s.id,"absent")}>غائب</button>
-            <button className={a?.status==="late"?"status late selected":"status late"} onClick={()=>markAttendance(s.id,"late")}>متأخر</button>
-          </div></td></tr>;
-      })}</tbody></table></div>
-      <p className="muted">سجل هذا التاريخ: {attendance.filter(a=>a.date===selectedDate).length} من {students.length} طالبًا.</p>
+    const records = data.students.map(s => ({
+      ...s,
+      status: data.attendance[`${date}_${s.id}`] || "غير مسجل",
+    }));
+    const count = status => records.filter(s => s.status === status).length;
+    return (
+      <div className="panel">
+        <div className="row no-print" style={{ marginBottom: 16 }}>
+          <label>تاريخ الحضور</label>
+          <input type="date" value={date} onChange={e => setDate(e.target.value)} />
+          <button className="light" onClick={() => window.print()}>طباعة الكشف</button>
+        </div>
+        <div className="row" style={{ marginBottom: 15 }}>
+          <span className="badge">حاضر: {count("حاضر")}</span>
+          <span className="badge" style={{ background: "#fff0f0", color: "#b42318" }}>غائب: {count("غائب")}</span>
+          <span className="badge" style={{ background: "#fff8e5", color: "#785b13" }}>متأخر: {count("متأخر")}</span>
+        </div>
+        <div className="table-wrap"><table>
+          <thead><tr><th>اسم الطالب</th><th>الصف</th><th>الشعبة</th><th>الحالة</th></tr></thead>
+          <tbody>{records.map(s => <tr key={s.id}>
+            <td>{s.name}</td><td>{s.grade || "—"}</td><td>{s.section || "—"}</td>
+            <td><select value={s.status} onChange={e => markAttendance(s.id, e.target.value)}>
+              <option>غير مسجل</option><option>حاضر</option><option>غائب</option><option>متأخر</option></select></td>
+          </tr>)}</tbody>
+        </table>{records.length === 0 && <div className="empty">أضف الطلاب أولًا لتسجيل الحضور.</div>}</div>
       </div>
-    </>;
+    );
   }
 
   function Finance() {
-    const [amounts, setAmounts] = useState({});
-    return <>
-      <PageTitle title="الرسوم والمدفوعات" subtitle="متابعة الرسوم والمبالغ المستلمة" />
-      <div className="stats">
-        <Stat icon={Wallet} label="إجمالي الرسوم" value={money(totalFees)}/>
-        <Stat icon={CheckCircle2} label="المستلم" value={money(totalPaid)}/>
-        <Stat icon={AlertCircle} label="المتبقي" value={money(totalFees-totalPaid)}/>
-      </div>
-      <div className="panel"><div className="table-wrap"><table><thead><tr>
-        <th>الطالب</th><th>الرسوم</th><th>المدفوع</th><th>المتبقي</th><th>تسجيل دفعة</th>
-      </tr></thead><tbody>{students.map(s=><tr key={s.id}>
-        <td>{s.name}</td><td>{money(s.fee)}</td><td className="green">{money(s.paid)}</td>
-        <td className="red">{money(s.fee-s.paid)}</td><td>
-          {s.fee>s.paid && <div className="payment-input">
-            <input type="number" min="1" max={s.fee-s.paid} placeholder="المبلغ"
-              value={amounts[s.id]||""} onChange={e=>setAmounts(p=>({...p,[s.id]:e.target.value}))}/>
-            <button className="primary small" onClick={()=>{
-              addPayment(s.id,amounts[s.id]);
-              setAmounts(p=>({...p,[s.id]:""}));
-            }}>تسجيل</button>
-          }{s.fee<=s.paid && <span className="green">مكتمل</span>}</div>
-        }</td></tr>)}</tbody></table></div></div>
-      <div className="panel"><h3>آخر الدفعات</h3>
-        {!payments.length && <div className="empty">لا توجد دفعات مسجلة</div>}
-        {payments.slice().reverse().map(p=><div className="list-row" key={p.id}>
-          <span>{students.find(s=>s.id===p.studentId)?.name || "طالب محذوف"} — {p.date}</span>
-          <strong className="green">{money(p.amount)}</strong>
-        </div>)}
-      </div>
-    </>;
+    return (
+      <>
+        <div className="grid">
+          <div className="card"><div className="label">إجمالي الأقساط</div><div className="metric">{money(totalFees)}</div></div>
+          <div className="card"><div className="label">المبلغ المدفوع</div><div className="metric">{money(totalPaid)}</div></div>
+          <div className="card"><div className="label">المتبقي</div><div className="metric">{money(totalDue)}</div></div>
+          <div className="card"><div className="label">عدد الطلاب</div><div className="metric">{data.students.length}</div></div>
+        </div>
+        <div className="panel">
+          <div className="panel-title">تسجيل دفعة طالب</div>
+          <div className="table-wrap"><table>
+            <thead><tr><th>الطالب</th><th>القسط الكلي</th><th>المدفوع</th><th>المتبقي</th><th className="no-print">مبلغ الدفعة</th><th className="no-print">إجراء</th></tr></thead>
+            <tbody>{data.students.map(s => {
+              const due = Number(s.fee) - Number(s.paid);
+              return <tr key={s.id}>
+                <td>{s.name}</td><td>{money(s.fee)}</td><td>{money(s.paid)}</td><td>{money(due)}</td>
+                <td className="no-print"><input type="number" min="1" max={due} disabled={due <= 0} placeholder="المبلغ" value={payments[s.id] || ""} onChange={e => setPayments(old => ({ ...old, [s.id]: e.target.value }))} /></td>
+                <td className="no-print">{due <= 0 ? <span className="badge">مكتمل</span> : <button className="primary small" onClick={() => recordPayment(s)}>تسجيل الدفعة</button>}</td>
+              </tr>;
+            })}</tbody>
+          </table>{data.students.length === 0 && <div className="empty">لا توجد بيانات مالية قبل إضافة الطلاب.</div>}</div>
+        </div>
+      </>
+    );
   }
 
   function Reports() {
-    const present = attendance.filter(a=>a.date===selectedDate&&a.status==="present").length;
-    const absent = attendance.filter(a=>a.date===selectedDate&&a.status==="absent").length;
-    const late = attendance.filter(a=>a.date===selectedDate&&a.status==="late").length;
-    return <>
-      <PageTitle title="التقارير" subtitle="ملخص بيانات الطلاب والحضور والرسوم" />
-      <div className="stats">
-        <Stat icon={Users} label="الطلاب" value={students.length}/>
-        <Stat icon={CheckCircle2} label="الحاضرون اليوم المحدد" value={present}/>
-        <Stat icon={AlertCircle} label="الغائبون" value={absent}/>
-        <Stat icon={CalendarDays} label="المتأخرون" value={late}/>
+    const present = Object.values(data.attendance).filter(v => v === "حاضر").length;
+    const absent = Object.values(data.attendance).filter(v => v === "غائب").length;
+    return (
+      <div className="panel">
+        <div className="panel-title">التقارير العامة</div>
+        <div className="grid">
+          <div className="card"><div className="label">الطلاب</div><div className="metric">{data.students.length}</div></div>
+          <div className="card"><div className="label">المعلمون</div><div className="metric">{data.teachers.length}</div></div>
+          <div className="card"><div className="label">الحالات المسجلة: حاضر</div><div className="metric">{present}</div></div>
+          <div className="card"><div className="label">الحالات المسجلة: غائب</div><div className="metric">{absent}</div></div>
+        </div>
+        <p>إجمالي الأقساط: <b>{money(totalFees)}</b></p>
+        <p>إجمالي المدفوعات المسجلة: <b>{money(totalPaid)}</b></p>
+        <p>إجمالي المتبقي: <b>{money(totalDue)}</b></p>
+        <p>عدد الصفوف والشعب: <b>{data.classes.length}</b></p>
+        <div className="row no-print" style={{ marginTop: 18 }}>
+          <button className="primary" onClick={() => window.print()}>طباعة التقرير</button>
+          <button className="light" onClick={exportCSV}>تصدير بيانات الطلاب CSV</button>
+        </div>
       </div>
-      <div className="panel"><h3>تقرير الحضور</h3><p>التاريخ: {selectedDate}</p>
-        <p>حاضر: {present} — غائب: {absent} — متأخر: {late}</p>
-        <button className="primary" onClick={exportCSV}><Download size={17}/> تصدير تقرير الطلاب والرسوم</button>
-      </div>
-    </>;
+    );
   }
 
-  function SettingsPage() {
-    return <>
-      <PageTitle title="الإعدادات" subtitle="معلومات النظام والتخزين" />
-      <div className="panel"><h3>أكاديمي لإدارة التعليم</h3>
-        <p>الإصدار التجريبي 1.0</p>
-        <p>تُحفظ البيانات على هذا المتصفح والجهاز باستخدام localStorage.</p>
-        <p className="red">هذه النسخة لا توفر تسجيل دخول أو قاعدة بيانات مشتركة أو نسخًا احتياطيًا تلقائيًا.</p>
-        <button className="light-btn" onClick={exportCSV}><Download size={17}/> تنزيل نسخة من بيانات الطلاب</button>
+  function Settings() {
+    return (
+      <div className="panel">
+        <div className="panel-title">النسخ الاحتياطي واسترجاع البيانات</div>
+        <div className="notice">احتفظ بنسخة احتياطية بانتظام. البيانات محفوظة في المتصفح وقد تُفقد إذا مسحت بيانات الموقع أو استخدمت متصفحًا آخر.</div>
+        <div className="row">
+          <button className="primary" onClick={backup}>تنزيل نسخة احتياطية</button>
+          <label className="light" style={{ padding: 10, borderRadius: 9, cursor: "pointer" }}>
+            استرجاع نسخة JSON
+            <input type="file" accept=".json,application/json" onChange={restore} style={{ display: "none" }} />
+          </label>
+        </div>
+        <div className="panel" style={{ marginTop: 20 }}>
+          <div className="panel-title">حالة التخزين</div>
+          <p>مكان الحفظ: المتصفح الحالي فقط.</p>
+          <p>الطلاب: {data.students.length} | المعلمون: {data.teachers.length} | الصفوف: {data.classes.length}</p>
+        </div>
       </div>
-    </>;
+    );
   }
 
-  const pages = {
-    dashboard: <Dashboard/>,
-    students: <Students/>,
-    teachers: <Teachers/>,
-    classes: <Classes/>,
-    attendance: <Attendance/>,
-    finance: <Finance/>,
-    reports: <Reports/>,
-    settings: <SettingsPage/>
+  const titles = {
+    home: "لوحة التحكم",
+    students: "إدارة الطلاب",
+    teachers: "إدارة المعلمين",
+    classes: "الصفوف والشعب",
+    attendance: "الحضور والغياب",
+    finance: "الأقساط والمدفوعات",
+    reports: "التقارير والطباعة",
+    settings: "النسخ الاحتياطي",
   };
 
-  return <div className="app-shell">
-    {mobileMenu && <div className="mobile-backdrop" onClick={()=>setMobileMenu(false)}/>}
-    <aside className={mobileMenu?"sidebar open":"sidebar"}>
-      <div className="brand"><div className="brand-logo"><School size={26}/></div>
-        <div><strong>أكاديمي</strong><span>نظام إدارة التعليم</span></div>
-        <button className="close-menu" onClick={()=>setMobileMenu(false)}><X/></button>
-      </div>
-      <div className="nav-caption">القائمة الرئيسية</div>
-      <nav>{nav.map(item => {
-        const Icon = item.icon;
-        return <button key={item.id} className={page===item.id?"nav-item active":"nav-item"}
-          onClick={()=>{setPage(item.id);setMobileMenu(false);}}>
-          <Icon size={19}/><span>{item.label}</span>
-        </button>;
-      })}</nav>
-      <div className="sidebar-footer"><div className="avatar">أ</div>
-        <div><strong>مدير المدرسة</strong><span>الحساب المحلي</span></div></div>
-    </aside>
-    <main className="main">
-      <header className="topbar">
-        <button className="menu-button" onClick={()=>setMobileMenu(true)}><Menu/></button>
-        <div><span className="breadcrumb">أكاديمي / </span><strong>{nav.find(n=>n.id===page)?.label}</strong></div>
-        <div className="top-date"><CalendarDays size={17}/> {new Date().toLocaleDateString("ar-IQ")}</div>
+  const pages = {
+    home: <Home />,
+    students: <Students />,
+    teachers: <Teachers />,
+    classes: <Classes />,
+    attendance: <Attendance />,
+    finance: <Finance />,
+    reports: <Reports />,
+    settings: <Settings />,
+  };
+
+  return (
+    <div className="app" dir="rtl">
+      <style>{css}</style>
+      <header className="top">
+        <div>
+          <div className="brand">🎓 أكاديمي | إدارة التعليم</div>
+          <div className="sub">نظام إدارة المدرسة والطلاب</div>
+        </div>
+        <div className="row no-print">
+          <span>نسخة محلية</span>
+          <button className="light" onClick={backup}>نسخ احتياطي</button>
+        </div>
       </header>
-      <section className="content">{pages[page]}</section>
-      <footer className="footer">أكاديمي لإدارة التعليم © {new Date().getFullYear()}</footer>
-    </main>
-    {notice && <div className="toast">{notice}</div>}
-  </div>;
+      <div className="layout">
+        <aside className="side no-print">
+          {nav.map(([id, label]) => (
+            <button key={id} className={`nav ${page === id ? "active" : ""}`} onClick={() => { setPage(id); setNotice(""); }}>
+              {label}
+            </button>
+          ))}
+        </aside>
+        <main className="main">
+          <h1 className="heading">{titles[page]}</h1>
+          <div className="muted">إدارة بيانات المؤسسة التعليمية</div>
+          {notice && <div className="notice no-print">{notice}<button className="light small" style={{ float: "left" }} onClick={() => setNotice("")}>إغلاق</button></div>}
+          {pages[page]}
+          <div className="muted" style={{ marginTop: 24 }}>أكاديمي — نظام إدارة التعليم</div>
+        </main>
+      </div>
+    </div>
+  );
 }
 
-createRoot(document.getElementById("root")).render(<App/>);
+createRoot(document.getElementById("root")).render(
+  <React.StrictMode><App /></React.StrictMode>
+);
